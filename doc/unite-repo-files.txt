@@ -13,6 +13,8 @@ CONTENTS                            *unite-repo_files-contents*
 
   INTRODUCTION                     |unite-repo_files-introduction|
     USAGE                                 |unite-repo_files-usage|
+  CUSTOMIZE                           |unite-repo_files-customize|
+    Variables                         |unite-repo_files-variables|
 
 =============================================================================
 INTRODUCTION                               *unite-repo_files-introduction*
@@ -30,6 +32,7 @@ Optionals:
     - bzr
     - ag
     - ack-grep
+    - vimproc
 
 Latest version:
     https://github.com/pekepeke/vim-unite-repo_files
@@ -42,6 +45,30 @@ To select file, execute |:Unite| with argument of repo_files
 
 >
     :Unite repo_files
+<
+
+
+=============================================================================
+CUSTOMIZE                                     *unite-repo_files-customize*
+
+
+-----------------------------------------------------------------------------
+Variables                                   *unite-repo_files-variables*
+
+
+g:unite_repo_files_rule                      *g:unite_repo_files_rule*
+
+define ruleset of gathering files
+
+example.)
+
+>
+    let g:unite_repo_files_rule = {
+            \   'git' : {
+            \   'located' : '.git',
+            \   'command' : 'git',
+            \   'exec' : '%c ls-files --cached --others --exclude-standard',
+            \ } }
 <
 
 

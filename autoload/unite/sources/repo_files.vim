@@ -2,43 +2,57 @@
 " LICENSE: MIT
 " AUTHOR: pekepeke <pekepekesamurai@gmail.com>
 
-let g:unite_repo_files_rule = {
-      \   'git' : {
-      \     'located' : '.git',
-      \     'command' : 'git',
-      \     'exec' : '%c ls-files --cached --others --exclude-standard',
-      \   },
-      \   'hg' : {
-      \     'located' : '.hg',
-      \     'command' : 'hg',
-      \     'exec' : '%c manifest',
-      \   },
-      \   'bazaar' : {
-      \     'located' : '.bzr',
-      \     'command' : 'bzr',
-      \     'exec' : '%c ls -R',
-      \   },
-      \   'svn' : {
-      \     'located' : '.svn',
-      \     'command' : 'svn',
-      \     'exec' : '%c ls -R',
-      \   },
-      \   '_' : {
-      \     'located' : '.',
-      \     'command' : 'ag',
-      \     'exec' : '%c -L --noheading --nocolor -a --nogroup --nopager',
-      \     'use_system' : 1,
-      \   },
-      \   '__' : {
-      \     'located' : '.',
-      \     'command' : ['ack-grep', 'ack'],
-      \     'exec' : '%c -f --no-heading --no-color -a --nogroup --nopager',
-      \     'use_system' : 1,
-      \   }
-      \ }
+let g:unite_repo_files_rule = get(g:, 'unite_repo_files_rule', {})
 
+function s:var_init()
+  for item in [
+        \ {
+        \   'name': 'git',
+        \   'located' : '.git',
+        \   'command' : 'git',
+        \   'exec' : '%c ls-files --cached --others --exclude-standard',
+        \ }, {
+        \   'name': 'hg',
+        \   'located' : '.hg',
+        \   'command' : 'hg',
+        \   'exec' : '%c manifest',
+        \ }, {
+        \   'name': 'bazaar',
+        \   'located' : '.bzr',
+        \   'command' : 'bzr',
+        \   'exec' : '%c ls -R',
+        \ }, {
+        \   'name': 'svn',
+        \   'located' : '.svn',
+        \   'command' : 'svn',
+        \   'exec' : '%c ls -R',
+        \ }, {
+        \   'name': '_',
+        \   'located' : '.',
+        \   'command' : 'ag',
+        \   'exec' : '%c -L --noheading --nocolor -a --nogroup --nopager',
+        \   'use_system' : 1,
+        \ }, {
+        \   'name': '__',
+        \   'located' : '.',
+        \   'command' : ['ack-grep', 'ack'],
+        \   'exec' : '%c -f --no-heading --no-color -a --nogroup --nopager',
+        \   'use_system' : 1,
+        \ },
+        \ ]
+    if !exists('g:unite_repo_files_rule.' . item.name)
+      let g:unite_repo_files_rule[item.name] = item
+      unlet item["name"]
+    endif
+  endfor
+endfunction
+
+call s:var_init()
+
+let s:has_vimproc = unite#util#has_vimproc()
 let s:source = {
 \   'name': 'repo_files',
+\   'hooks': {},
 \ }
 
 function! s:source.on_init(args, context)
@@ -46,25 +60,28 @@ function! s:source.on_init(args, context)
         \ }
 endfunction
 
-function! s:create_candidate(val, root)
+function! s:create_candidate(val, directory)
   return {
         \   "word": a:val,
         \   "source": "repo_files",
         \   "kind": "file",
         \   "action__path": a:val,
-        \   "action__directory": a:root
+        \   "action__directory": a:directory
         \ }
 endfunction
 
+function! s:source.async_gather_candidates(args, context) "{{{
+endfunction
+
 function! s:source.gather_candidates(args, context)
-  let root = unite#util#path2project_directory(expand('%'))
+  let directory = unite#util#path2project_directory(expand('%'))
 
   let command = ""
   let is_use_system = 0
 
   for name in keys(g:unite_repo_files_rule)
     let item = g:unite_repo_files_rule[name]
-    if s:has_located(root, item)
+    if s:has_located(directory, item)
       let command = s:get_command(item)
       let is_use_system = s:is_use_system(item)
       break
@@ -87,25 +104,96 @@ function! s:source.gather_candidates(args, context)
 
   let cwd = getcwd()
 
-  lcd `=root`
+  if s:has_vimproc
+
+    call unite#print_source_message(
+          \ 'directory: ' . directory, self.name)
+
+    let a:context.is_async = 1
+    let continuation = {
+          \   'files' : [],
+          \   'rest' : [directory],
+          \   'directory' : directory,
+          \   'end' : 0,
+          \ }
+
+    lcd `=directory`
+    let a:context.source__proc = vimproc#pgroup_open(
+          \ command
+          \ )
+    lcd `=cwd`
+
+    " Close handles.
+    call a:context.source__proc.stdin.close()
+
+    let a:context.__continuation = continuation
+
+    return []
+  endif
+  lcd `=directory`
   let result = is_use_system ? system(command) : unite#util#system(command)
   lcd `=cwd`
 
   if is_use_system || unite#util#get_last_status() == 0
     let lines = split(result, '\r\n\|\r\|\n')
-    return filter(map(lines, 's:create_candidate(v:val, root)'), 'len(v:val) > 0')
+    return filter(map(lines, 's:create_candidate(v:val, directory)'), 'len(v:val) > 0')
   endif
 
   call unite#util#print_error(printf('can not exec command : %s', command))
   return []
 endfunction
 
-function! s:has_located(root, item)
+function! s:source.async_gather_candidates(args, context) "{{{
+  let stderr = a:context.source__proc.stderr
+  if !stderr.eof
+    " Print error.
+    let errors = filter(stderr.read_lines(-1, 100),
+          \ "v:val !~ '^\\s*$'")
+    if !empty(errors)
+      call unite#print_source_error(errors, self.name)
+    endif
+  endif
+
+  let continuation = a:context.__continuation
+
+  let stdout = a:context.source__proc.stdout
+  if stdout.eof
+    " Disable async.
+    if stdout.eof
+      call unite#print_source_message(
+            \ 'Directory traverse was completed.', self.name)
+    else
+      call unite#print_source_message(
+            \ 'Scanning direcotory.', self.name)
+    endif
+    let a:context.is_async = 0
+    let continuation.end = 1
+  endif
+
+  let candidates = []
+  for filename in map(filter(
+        \ stdout.read_lines(-1, 100), 'v:val != ""'),
+        \ "fnamemodify(unite#util#iconv(v:val, 'char', &encoding), ':p')")
+    call add(candidates, s:create_candidate(
+          \   unite#util#substitute_path_separator(
+          \   fnamemodify(filename, ':p')), continuation.directory
+          \ ))
+  endfor
+
+  let continuation.files += candidates
+  " if stdout.eof
+  "   " write cache
+  " endif
+
+  return deepcopy(candidates)
+endfunction
+
+function! s:has_located(directory, item)
   if !exists('a:item.located')
     return 0
   endif
 
-  let t = a:root.'/'. a:item.located
+  let t = a:directory.'/'. a:item.located
   return isdirectory(t) || filereadable(t)
 endfunction
 
