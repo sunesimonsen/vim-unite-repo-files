@@ -2,78 +2,23 @@
 " LICENSE: MIT
 " AUTHOR: pekepeke <pekepekesamurai@gmail.com>
 
+" global variables {{{1
 let g:unite_repo_files_rule = get(g:, 'unite_repo_files_rule', {})
 
-function s:var_init()
-  for item in [
-        \ {
-        \   'name': 'git',
-        \   'located' : '.git',
-        \   'command' : 'git',
-        \   'exec' : '%c ls-files --cached --others --exclude-standard',
-        \ }, {
-        \   'name': 'hg',
-        \   'located' : '.hg',
-        \   'command' : 'hg',
-        \   'exec' : '%c manifest',
-        \ }, {
-        \   'name': 'bazaar',
-        \   'located' : '.bzr',
-        \   'command' : 'bzr',
-        \   'exec' : '%c ls -R',
-        \ }, {
-        \   'name': 'svn',
-        \   'located' : '.svn',
-        \   'command' : 'svn',
-        \   'exec' : '%c ls -R',
-        \ }, {
-        \   'name': '_',
-        \   'located' : '.',
-        \   'command' : 'ag',
-        \   'exec' : '%c -L --noheading --nocolor -a --nogroup --nopager',
-        \   'use_system' : 1,
-        \ }, {
-        \   'name': '__',
-        \   'located' : '.',
-        \   'command' : ['ack-grep', 'ack'],
-        \   'exec' : '%c -f --no-heading --no-color -a --nogroup --nopager',
-        \   'use_system' : 1,
-        \ },
-        \ ]
-    if !exists('g:unite_repo_files_rule.' . item.name)
-      let g:unite_repo_files_rule[item.name] = item
-      unlet item["name"]
-    endif
-  endfor
-endfunction
-
-call s:var_init()
-
+" static values {{{1
 let s:has_vimproc = unite#util#has_vimproc()
 let s:source = {
 \   'name': 'repo_files',
 \   'hooks': {},
 \ }
 
-function! s:source.on_init(args, context)
+" source {{{1
+function! s:source.on_init(args, context) "{{{2
   let s:buffer = {
         \ }
 endfunction
 
-function! s:create_candidate(val, directory)
-  return {
-        \   "word": a:val,
-        \   "source": "repo_files",
-        \   "kind": "file",
-        \   "action__path": a:val,
-        \   "action__directory": a:directory
-        \ }
-endfunction
-
-function! s:source.async_gather_candidates(args, context) "{{{
-endfunction
-
-function! s:source.gather_candidates(args, context)
+function! s:source.gather_candidates(args, context) " {{{2
   let directory = unite#util#path2project_directory(expand('%'))
 
   let command = ""
@@ -143,7 +88,7 @@ function! s:source.gather_candidates(args, context)
   return []
 endfunction
 
-function! s:source.async_gather_candidates(args, context) "{{{
+function! s:source.async_gather_candidates(args, context) "{{{2
   let stderr = a:context.source__proc.stderr
   if !stderr.eof
     " Print error.
@@ -188,7 +133,25 @@ function! s:source.async_gather_candidates(args, context) "{{{
   return deepcopy(candidates)
 endfunction
 
-function! s:has_located(directory, item)
+function! s:source.hooks.on_close(args, context) " {{{2
+  if has_key(a:context, 'source__proc')
+    call a:context.source__proc.waitpid()
+  endif
+endfunction
+
+" util functions {{{1
+function! s:create_candidate(val, directory) "{{{2
+  return {
+        \   "word": a:val,
+        \   "source": "repo_files",
+        \   "kind": "file",
+        \   "action__path": a:val,
+        \   "action__directory": a:directory
+        \ }
+endfunction
+
+
+function! s:has_located(directory, item) " {{{2
   if !exists('a:item.located')
     return 0
   endif
@@ -197,7 +160,7 @@ function! s:has_located(directory, item)
   return isdirectory(t) || filereadable(t)
 endfunction
 
-function! s:get_command(item)
+function! s:get_command(item) " {{{2
   let commands = type(a:item.command) == type([]) ? a:item.command : [a:item.command]
   for _cmd in commands
     if executable(_cmd)
@@ -211,11 +174,57 @@ function! s:get_command(item)
   return ''
 endfunction
 
-function! s:is_use_system(item)
+function! s:is_use_system(item) " {{{2
   return exists('a:item.use_system') && a:item.use_system
 endfunction
 
-function! unite#sources#repo_files#define()
+function s:variables_init() "{{{2
+  for item in [
+        \ {
+        \   'name': 'git',
+        \   'located' : '.git',
+        \   'command' : 'git',
+        \   'exec' : '%c ls-files --cached --others --exclude-standard',
+        \ }, {
+        \   'name': 'hg',
+        \   'located' : '.hg',
+        \   'command' : 'hg',
+        \   'exec' : '%c manifest',
+        \ }, {
+        \   'name': 'bazaar',
+        \   'located' : '.bzr',
+        \   'command' : 'bzr',
+        \   'exec' : '%c ls -R',
+        \ }, {
+        \   'name': 'svn',
+        \   'located' : '.svn',
+        \   'command' : 'svn',
+        \   'exec' : '%c ls -R',
+        \ }, {
+        \   'name': '_',
+        \   'located' : '.',
+        \   'command' : 'ag',
+        \   'exec' : '%c -L --noheading --nocolor -a --nogroup --nopager',
+        \   'use_system' : 1,
+        \ }, {
+        \   'name': '__',
+        \   'located' : '.',
+        \   'command' : ['ack-grep', 'ack'],
+        \   'exec' : '%c -f --no-heading --no-color -a --nogroup --nopager',
+        \   'use_system' : 1,
+        \ },
+        \ ]
+    if !exists('g:unite_repo_files_rule.' . item.name)
+      let g:unite_repo_files_rule[item.name] = item
+      unlet item["name"]
+    endif
+  endfor
+endfunction
+
+" define {{{1
+call s:variables_init()
+function! unite#sources#repo_files#define() " {{{2
   return [s:source]
 endfunction
 
+" __END__ {{{1
