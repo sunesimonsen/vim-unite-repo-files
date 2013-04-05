@@ -25,21 +25,31 @@ function! s:source.gather_candidates(args, context) " {{{2
   let is_use_system = 0
 
   for name in keys(g:unite_repo_files_rule)
+    if name =~ "^_"
+      continue
+    endif
     let item = g:unite_repo_files_rule[name]
     if s:has_located(directory, item)
-      let command = s:get_command(item)
+      let command = s:get_command(item, directory)
       let is_use_system = s:is_use_system(item)
       break
     endif
   endfor
 
   if empty(command)
-    let item = g:unite_repo_files_rule._
-    if empty(item)
-      let item = g:unite_repo_files_rule.__
-    endif
-    let command = s:get_commmand(item)
-    let is_use_system = s:is_use_system(item)
+    let name = '_'
+    while 1
+      if !has_key(g:unite_repo_files_rule, name)
+        break
+      endif
+      let item = g:unite_repo_files_rule[name]
+      let command = s:get_command(item, directory)
+      if !empty(command)
+        let is_use_system = s:is_use_system(item)
+        break
+      endif
+      let name .= '_'
+    endwhile
   endif
 
   if empty(command)
@@ -47,6 +57,8 @@ function! s:source.gather_candidates(args, context) " {{{2
     return []
   endif
 
+  call unite#print_source_message(
+        \ 'command : ' . command, self.name)
   let cwd = getcwd()
 
   if s:has_vimproc
@@ -63,9 +75,23 @@ function! s:source.gather_candidates(args, context) " {{{2
           \ }
 
     lcd `=directory`
-    let a:context.source__proc = vimproc#pgroup_open(
-          \ command
-          \ )
+
+    let save_term = $TERM
+    try
+      " Disable colors.
+      let $TERM = 'dumb'
+
+      if has_key(item, 'with_plineopen3') && item.with_plineopen3
+        let a:context.source__proc = vimproc#plineopen3(
+              \ vimproc#util#iconv(command, &encoding, 'char'), 1)
+      else
+        let a:context.source__proc = vimproc#pgroup_open(
+              \ command
+              \ )
+      endif
+    finally
+      let $TERM = save_term
+    endtry
     lcd `=cwd`
 
     " Close handles.
@@ -160,7 +186,7 @@ function! s:has_located(directory, item) " {{{2
   return isdirectory(t) || filereadable(t)
 endfunction
 
-function! s:get_command(item) " {{{2
+function! s:get_command(item, direcotory) " {{{2
   let commands = type(a:item.command) == type([]) ? a:item.command : [a:item.command]
   for _cmd in commands
     if executable(_cmd)
@@ -169,7 +195,7 @@ function! s:get_command(item) " {{{2
     endif
   endfor
   if exists('command')
-    return substitute(a:item.exec, '%c', command, '')
+    return substitute(substitute(a:item.exec, '%c', command, ''), '%d', a:direcotory, '')
   endif
   return ''
 endfunction
@@ -178,7 +204,7 @@ function! s:is_use_system(item) " {{{2
   return exists('a:item.use_system') && a:item.use_system
 endfunction
 
-function s:variables_init() "{{{2
+function! s:variables_init() "{{{2
   for item in [
         \ {
         \   'name': 'git',
@@ -204,14 +230,15 @@ function s:variables_init() "{{{2
         \   'name': '_',
         \   'located' : '.',
         \   'command' : 'ag',
-        \   'exec' : '%c -L --noheading --nocolor -a --nogroup --nopager',
+        \   'exec' : '%c --noheading --nocolor --nogroup --nopager -g "" %d',
         \   'use_system' : 1,
         \ }, {
         \   'name': '__',
         \   'located' : '.',
         \   'command' : ['ack-grep', 'ack'],
-        \   'exec' : '%c -f --no-heading --no-color -a --nogroup --nopager',
+        \   'exec' : '%c -f --no-heading --no-color --nogroup --nopager',
         \   'use_system' : 1,
+        \   'with_plineopen3': 1,
         \ },
         \ ]
     if !exists('g:unite_repo_files_rule.' . item.name)
