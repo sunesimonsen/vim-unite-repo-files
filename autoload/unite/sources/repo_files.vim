@@ -222,11 +222,6 @@ function! s:variables_init() "{{{2
         \   'command' : 'bzr',
         \   'exec' : '%c ls -R',
         \ }, {
-        \   'name': 'svn',
-        \   'located' : '.svn',
-        \   'command' : 'svn',
-        \   'exec' : '%c ls -R',
-        \ }, {
         \   'name': '_',
         \   'located' : '.',
         \   'command' : 'ag',
@@ -246,6 +241,15 @@ function! s:variables_init() "{{{2
       unlet item["name"]
     endif
   endfor
+
+  " too slow...
+  " if !exists('g:unite_repo_files_rule["svn"]')
+  "   let g:unite_repo_files_rule['svn'] = {
+  "         \   'located' : '.svn',
+  "         \   'command' : 'svn',
+  "         \   'exec' : '%c ls -R',
+  "         \ }
+  " endif
 endfunction
 
 " define {{{1
