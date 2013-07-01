@@ -3,12 +3,14 @@
 " AUTHOR: pekepeke <pekepekesamurai@gmail.com>
 
 " global variables {{{1
-let g:unite_repo_files_rule = get(g:, 'unite_repo_files_rule', {})
+let g:unite_source_repo_files_rule = get(g:, 'unite_source_repo_files_rule', {})
+call unite#util#set_default('g:unite_source_repo_files_max_candidates', 100)
 
 " static values {{{1
 let s:has_vimproc = unite#util#has_vimproc()
 let s:source = {
 \   'name': 'repo_files',
+\   'max_candidates': g:unite_source_repo_files_max_candidates,
 \   'hooks': {},
 \ }
 
@@ -24,11 +26,11 @@ function! s:source.gather_candidates(args, context) " {{{2
   let command = ""
   let is_use_system = 0
 
-  for name in keys(g:unite_repo_files_rule)
+  for name in keys(g:unite_source_repo_files_rule)
     if name =~ "^_"
       continue
     endif
-    let item = g:unite_repo_files_rule[name]
+    let item = g:unite_source_repo_files_rule[name]
     if s:has_located(directory, item)
       let command = s:get_command(item, directory)
       let is_use_system = s:is_use_system(item)
@@ -39,10 +41,10 @@ function! s:source.gather_candidates(args, context) " {{{2
   if empty(command)
     let name = '_'
     while 1
-      if !has_key(g:unite_repo_files_rule, name)
+      if !has_key(g:unite_source_repo_files_rule, name)
         break
       endif
-      let item = g:unite_repo_files_rule[name]
+      let item = g:unite_source_repo_files_rule[name]
       let command = s:get_command(item, directory)
       if !empty(command)
         let is_use_system = s:is_use_system(item)
@@ -236,15 +238,15 @@ function! s:variables_init() "{{{2
         \   'with_plineopen3': 1,
         \ },
         \ ]
-    if !exists('g:unite_repo_files_rule.' . item.name)
-      let g:unite_repo_files_rule[item.name] = item
+    if !exists('g:unite_source_repo_files_rule.' . item.name)
+      let g:unite_source_repo_files_rule[item.name] = item
       unlet item["name"]
     endif
   endfor
 
   " too slow...
-  " if !exists('g:unite_repo_files_rule["svn"]')
-  "   let g:unite_repo_files_rule['svn'] = {
+  " if !exists('g:unite_source_repo_files_rule["svn"]')
+  "   let g:unite_source_repo_files_rule['svn'] = {
   "         \   'located' : '.svn',
   "         \   'command' : 'svn',
   "         \   'exec' : '%c ls -R',

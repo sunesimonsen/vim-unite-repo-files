@@ -1,4 +1,4 @@
-NAME=unite-repo-files
+NAME=unite-source-repo-files
 .PHONY: doc
 
 doc: check_vim_helpfile $(NAME).txt
