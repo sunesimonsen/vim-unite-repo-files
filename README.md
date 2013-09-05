@@ -48,8 +48,9 @@ Latest version:
 
 To select file, execute |:Unite| with argument of repo_files
 
-
-	:Unite repo_files
+```
+:Unite repo_files
+```
 
 
 ## CUSTOMIZE
@@ -63,13 +64,12 @@ example.)
 
 
 ```
-
-	let g:unite_source_repo_files_rule = {
-		\   'git' : {
-		\   'located' : '.git',
-		\   'command' : 'git',
-		\   'exec' : '%c ls-files --cached --others --exclude-standard',
-		\ } }
+let g:unite_source_repo_files_rule = {
+	\   'git' : {
+	\   'located' : '.git',
+	\   'command' : 'git',
+	\   'exec' : '%c ls-files --cached --others --exclude-standard',
+	\ } }
 ```
 
 #### g:unite_source_repo_files_max_candidates
@@ -77,4 +77,8 @@ example.)
 Set the max number of |unite-source-repo_files| candidates.
 
 The default value is 100.
+
+#### g:unite_repo_files_ignore_pattern
+
+Specify the regexp pattern to ignore candidates of the file.
 

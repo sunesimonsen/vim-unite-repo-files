@@ -5,12 +5,17 @@
 " global variables {{{1
 let g:unite_source_repo_files_rule = get(g:, 'unite_source_repo_files_rule', {})
 call unite#util#set_default('g:unite_source_repo_files_max_candidates', 100)
+let g:unite_source_repo_files_ignore_pattern = get(g:, 'unite_repo_files_ignore_pattern',
+\'\%(^\|/\)\.$\|\~$\|\.\%(o\|exe\|dll\|bak\|DS_Store\|zwc\|pyc\|sw[po]\|class\)$'.
+\'\|\%(^\|/\)\%(\.hg\|\.git\|\.bzr\|\.svn\|tags\%(-.*\)\?\)\%($\|/\)')
+" \'\|\.\%(\|jpg\|png\|gif\|jpeg\|tiff\|eps\|ocx\|prn\|obj\)$'.
 
 " static values {{{1
 let s:has_vimproc = unite#util#has_vimproc()
 let s:source = {
 \   'name': 'repo_files',
 \   'max_candidates': g:unite_source_repo_files_max_candidates,
+\   'ignore_pattern' : g:unite_source_repo_files_ignore_pattern,
 \   'hooks': {},
 \ }
 
@@ -147,6 +152,9 @@ function! s:source.async_gather_candidates(args, context) "{{{2
   for filename in map(filter(
         \ stdout.read_lines(-1, 100), 'v:val != ""'),
         \ "fnamemodify(unite#util#iconv(v:val, 'char', &encoding), ':p')")
+    if filename =~? a:context.source.ignore_pattern
+      continue
+    endif
     call add(candidates, s:create_candidate(
           \   unite#util#substitute_path_separator(
           \   fnamemodify(filename, ':p')), continuation.directory
