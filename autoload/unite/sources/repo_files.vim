@@ -26,7 +26,7 @@ function! s:source.on_init(args, context) "{{{2
 endfunction
 
 function! s:source.gather_candidates(args, context) " {{{2
-  let directory = unite#util#path2project_directory(expand('%'))
+  let directory = unite#util#path2project_directory(expand("%"))
 
   let command = ""
   let is_use_system = 0
@@ -142,22 +142,23 @@ function! s:source.async_gather_candidates(args, context) "{{{2
             \ 'Directory traverse was completed.', self.name)
     else
       call unite#print_source_message(
-            \ 'Scanning direcotory.', self.name)
+            \ 'Scanning directory.', self.name)
     endif
     let a:context.is_async = 0
     let continuation.end = 1
   endif
 
   let candidates = []
+  let lines = stdout.read_lines(-1, 100)
   for filename in map(filter(
-        \ stdout.read_lines(-1, 100), 'v:val != ""'),
-        \ "fnamemodify(unite#util#iconv(v:val, 'char', &encoding), ':p')")
+        \ lines, 'v:val != ""'),
+        \ "unite#util#iconv(v:val, 'char', &encoding)")
     if filename =~? a:context.source.ignore_pattern
       continue
     endif
     call add(candidates, s:create_candidate(
-          \   unite#util#substitute_path_separator(
-          \   fnamemodify(filename, ':p')), continuation.directory
+          \   filename, 
+          \   continuation.directory
           \ ))
   endfor
 
@@ -176,16 +177,15 @@ function! s:source.hooks.on_close(args, context) " {{{2
 endfunction
 
 " util functions {{{1
-function! s:create_candidate(val, directory) "{{{2
+function! s:create_candidate(filename, directory) "{{{2
   return {
-        \   "word": a:val,
+        \   "word": unite#util#substitute_path_separator(a:filename),
         \   "source": "repo_files",
         \   "kind": "file",
-        \   "action__path": a:val,
+        \   "action__path": unite#util#substitute_path_separator(a:directory . '/' . a:filename),
         \   "action__directory": a:directory
         \ }
 endfunction
-
 
 function! s:has_located(directory, item) " {{{2
   if !exists('a:item.located')
@@ -196,7 +196,7 @@ function! s:has_located(directory, item) " {{{2
   return isdirectory(t) || filereadable(t)
 endfunction
 
-function! s:get_command(item, direcotory) " {{{2
+function! s:get_command(item, directory) " {{{2
   let commands = type(a:item.command) == type([]) ? a:item.command : [a:item.command]
   for _cmd in commands
     if executable(_cmd)
@@ -205,7 +205,7 @@ function! s:get_command(item, direcotory) " {{{2
     endif
   endfor
   if exists('command')
-    return substitute(substitute(a:item.exec, '%c', command, ''), '%d', a:direcotory, '')
+    return substitute(substitute(a:item.exec, '%c', command, ''), '%d', a:directory, '')
   endif
   return ''
 endfunction
